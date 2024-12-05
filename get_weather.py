@@ -1,4 +1,5 @@
 import requests
+from utils import detect_language
 
 
 class WeatherAPI:
@@ -12,7 +13,7 @@ class WeatherAPI:
             query = {
             'apikey': self.apikey,
             'q': location,
-            'language': 'en-us',
+            'language': detect_language(location),
             'details': True,
             'toplevel':False,
 
@@ -34,7 +35,7 @@ class WeatherAPI:
             raise
 
 
-    def get_location_weather(self, latitude:float, longitude:float):
+    def get_location_weather_coords(self, latitude:float, longitude:float):
         url = f"{self.base_url}locations/v1/cities/geoposition/search"
         try:
             query = {
@@ -61,7 +62,7 @@ class WeatherAPI:
             raise
 
         
-    def get_weather(self, location_key:str):
+    def get_weather(self, location_key: str):
         try:
             request_url = f'http://dataservice.accuweather.com/forecasts/v1/hourly/1hour/{location_key}'
             query = {
@@ -73,20 +74,24 @@ class WeatherAPI:
             response = requests.get(url=request_url, params=query)
 
             if response.status_code == 200:
-                weather: dict = response.json()[0]
-                temperature = weather.get('Temperature').get('Value')
+                weather = response.json()[0]  # Get the first hour's weather data
+                temperature = weather.get('Temperature', {}).get('Value')
                 humidity = weather.get('RelativeHumidity')
-                speed_wind = weather.get('Wind').get('Speed').get('Value')
-                precipitation = weather.get("PrecipitationSummary").get("PastHour").get('Value')
-                
+                wind = weather.get('Wind', {})
+                wind_speed = wind.get('Speed', {}).get('Value')
+                # print(weather) дебажил)
+
+                if temperature is None or humidity is None or wind_speed is None:
+                    raise ValueError("Бед запрос реквест нету данных.")
+
                 return {
-                    'temperature': temperature, 
+                    'temperature': temperature,
                     'humidity': humidity,
-                    'wind_speed': speed_wind,
-                    'precipitation': precipitation
+                    'wind_speed': wind_speed,
                 }
 
-            raise f'{response.status_code} | {response.text}'
+            raise Exception(f"Ерор фетчинг дата: {response.status_code} | {response.text}")
+
         except Exception as e:
-            print(e)
+            print(f"Error in get_weather: {e}")
             return None
